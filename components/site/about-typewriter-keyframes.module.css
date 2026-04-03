@@ -1,0 +1,53 @@
+.figure {
+  --about-figure-w: clamp(312px, 22vw, 468px);
+  width: var(--about-figure-w);
+  pointer-events: none;
+  user-select: none;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1536 / 1024;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/*
+ * Paper <img> base layout (before GSAP transform).
+ * File: components/site/about-typewriter-keyframes.module.css
+ *
+ * Horizontal anchor:
+ *   - left: 50%  → anchor the box’s left edge at stage center
+ *   - margin-left → shifts the whole box left (more negative) or right (less negative)
+ *     (primary knob for left/right after centering; compensates PNG transparent padding)
+ *
+ * Vertical anchor:
+ *   - top → distance from top of .stage; smaller / more negative = move paper UP;
+ *     larger = move paper DOWN
+ *
+ * Size:
+ *   - width → rendered width as % of .stage; height: auto keeps aspect ratio
+ *
+ * GSAP (see TSX) adds transform translate(x,y) on top of this layout.
+ */
+ .paper {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 7%;
+  width: 53%;
+  height: auto;
+  margin-left: -24%;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));
+  will-change: transform;
+}
+
+.typewriter {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: auto;
+  display: block;
+}

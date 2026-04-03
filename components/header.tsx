@@ -1,9 +1,12 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
+import { headerNav, mobileNav } from "@/config/site"
 
 export function Header() {
+  const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
@@ -21,49 +24,40 @@ export function Header() {
         <div className="flex items-center justify-between h-14 lg:h-16">
           <Link 
             href="/" 
-            className="group flex items-baseline gap-2"
+            className="group flex items-baseline gap-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <span className="font-serif text-lg md:text-xl tracking-tight text-foreground">
               Zixuan
             </span>
-            <span className="font-serif text-lg md:text-xl tracking-tight text-foreground/40 group-hover:text-foreground/70 transition-colors duration-300">
+            <span className="font-serif text-lg md:text-xl tracking-tight text-foreground/40 group-hover:text-foreground/70 transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)]">
               Chen
             </span>
           </Link>
           
-          {/* Desktop navigation - subtle chapter markers */}
-          <nav className="hidden md:flex items-center gap-8">
-            <Link
-              href="/work"
-              className="group flex items-baseline gap-1.5 text-[11px] tracking-[0.1em] uppercase text-muted-foreground/70 hover:text-foreground transition-colors duration-300"
-            >
-              <span className="text-[9px] font-mono text-muted-foreground/30">I</span>
-              <span>Work</span>
-            </Link>
-            <Link
-              href="/notes"
-              className="group flex items-baseline gap-1.5 text-[11px] tracking-[0.1em] uppercase text-muted-foreground/70 hover:text-foreground transition-colors duration-300"
-            >
-              <span className="text-[9px] font-mono text-muted-foreground/30">II</span>
-              <span>Notes</span>
-            </Link>
-            <Link
-              href="/archive"
-              className="group flex items-baseline gap-1.5 text-[11px] tracking-[0.1em] uppercase text-muted-foreground/70 hover:text-foreground transition-colors duration-300"
-            >
-              <span className="text-[9px] font-mono text-muted-foreground/30">III</span>
-              <span>Archive</span>
-            </Link>
-            <Link
-              href="/about"
-              className="group flex items-baseline gap-1.5 text-[11px] tracking-[0.1em] uppercase text-muted-foreground/70 hover:text-foreground transition-colors duration-300"
-            >
-              <span className="text-[9px] font-mono text-muted-foreground/30">IV</span>
-              <span>About</span>
-            </Link>
+          <nav className="hidden md:flex items-center gap-8" aria-label="Primary">
+            {headerNav.map((item) => {
+              const active = pathname === item.href
+              return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`group/nav flex items-baseline gap-1.5 text-[11px] tracking-[0.1em] uppercase rounded-sm outline-none transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)] focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                  active
+                    ? "text-foreground/90"
+                    : "text-muted-foreground/70 hover:text-foreground"
+                }`}
+              >
+                <span className={`text-[9px] font-mono transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)] ${
+                  active ? "text-muted-foreground/45" : "text-muted-foreground/30 group-hover/nav:text-muted-foreground/42"
+                }`}>
+                  {item.chapter}
+                </span>
+                <span>{item.label}</span>
+              </Link>
+            )
+            })}
           </nav>
 
-          {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="md:hidden p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
@@ -78,16 +72,9 @@ export function Header() {
         </div>
       </div>
 
-      {/* Mobile Navigation */}
       <div className={`md:hidden overflow-hidden transition-all duration-300 bg-background/95 backdrop-blur-md ${isMenuOpen ? 'max-h-80' : 'max-h-0'}`}>
         <nav className="px-6 py-6 flex flex-col gap-5">
-          {[
-            { label: "Work", href: "/work" },
-            { label: "About", href: "/about" },
-            { label: "Notes", href: "/notes" },
-            { label: "Archive", href: "/archive" },
-            { label: "Contact", href: "/contact" },
-          ].map((item) => (
+          {mobileNav.map((item) => (
             <Link
               key={item.href}
               href={item.href}

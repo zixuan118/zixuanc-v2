@@ -1,0 +1,110 @@
+.root {
+  /* 边栏主物件：原先用 transform:scale(1.5) 放大，会把 PNG/SVG 二次插值发糊；改为布局尺寸直接 ×1.5 */
+  --archive-camera-w: clamp(960px, 68vw, 1400px);
+  --display-scale: 1.5;
+  position: relative;
+  width: min(
+    calc(135% * var(--display-scale)),
+    calc(var(--archive-camera-w) * 1.38 * var(--display-scale))
+  );
+  max-width: min(
+    calc(100% * var(--display-scale)),
+    calc(100vw * 0.96)
+  );
+  max-height: min(
+    calc(580px * var(--display-scale)),
+    calc(64vh * var(--display-scale))
+  );
+  aspect-ratio: 1536 / 1024;
+  margin-left: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  /* 避免与 clip-path + mix-blend 叠用时不刷新子层 SVG 旋转 */
+  --lens-cx: 46.366%;
+  --lens-cy: 49.187%;
+  /* 略大于镜头抠空，允许叶片与 PNG 镜筒轻微重合，压住白边 */
+  --lens-rx: 7.22%;
+  --lens-ry: 10.55%;
+  --iris-scale: 1.04;
+  /* 与 camera.png 中镜头朝向一致：略朝左下（负角 = 逆时针，屏幕 y 向下） */
+  --iris-tilt-deg: -11deg;
+}
+
+.irisDebug .stage {
+  --iris-scale: 1.36;
+}
+
+.irisClip {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  clip-path: ellipse(var(--lens-rx) var(--lens-ry) at var(--lens-cx) var(--lens-cy));
+  pointer-events: none;
+  transform-origin: var(--lens-cx) var(--lens-cy);
+  /* 与 clip 同层旋转，椭圆与叶片一起倾斜，避免只转内容、抠空仍正交 */
+  transform: rotate(var(--iris-tilt-deg)) scale(var(--iris-scale));
+}
+
+.iris {
+  position: absolute;
+  inset: 0;
+}
+
+.irisSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+  shape-rendering: geometricPrecision;
+}
+
+/* 孔缘衬环：叠在底层，不抢叶片 */
+.irisLensWellRing {
+  pointer-events: none;
+}
+
+.irisBladeBase {
+  paint-order: fill stroke;
+}
+
+/* 方向光 + 拉丝层 */
+.irisBladeDirectional {
+  mix-blend-mode: soft-light;
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+/* 内缘受光带 */
+.irisBladeInnerRim {
+  mix-blend-mode: overlay;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+/* 极细外轮廓高光，叠在 grain 之后 */
+.irisBladeHairline {
+  paint-order: normal;
+  pointer-events: none;
+}
+
+.camera {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: auto;
+  display: block;
+  /* 略减暖黄：轻微降饱和 + 色相微向冷侧；强度低减轻栅格发软 */
+  filter: saturate(0.94) hue-rotate(-6deg);
+  image-rendering: auto;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}

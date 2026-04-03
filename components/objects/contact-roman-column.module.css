@@ -1,0 +1,49 @@
+.root {
+  position: relative;
+  width: min(132%, 420px);
+  max-width: 100%;
+  aspect-ratio: 768 / 1024;
+  margin-left: auto;
+  pointer-events: none;
+  user-select: none;
+  /* Bottom dissolves into page — no hard cut at the “foot” */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 48%,
+    rgba(0, 0, 0, 0.92) 64%,
+    rgba(0, 0, 0, 0.55) 78%,
+    rgba(0, 0, 0, 0.18) 90%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 48%,
+    rgba(0, 0, 0, 0.92) 64%,
+    rgba(0, 0, 0, 0.55) 78%,
+    rgba(0, 0, 0, 0.18) 90%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  image-rendering: auto;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  /* 更轻：弱化阴影，避免底缘与背景抢对比 */
+  filter: brightness(1.04) contrast(0.96) saturate(0.86) hue-rotate(-9deg)
+    drop-shadow(0 3px 14px rgba(14, 14, 14, 0.04));
+  transform-origin: center bottom;
+}
+

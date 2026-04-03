@@ -1,154 +1,74 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
-import { ArrowUpRight } from "lucide-react"
+import { ChapterLabel } from "@/components/site/chapter-label"
+import { SectionRule } from "@/components/home/section-rule"
+import { useHomeInteraction, useHomeSection } from "@/components/home/home-interaction"
+import { routes } from "@/config/site"
 
 export function VisualFragment() {
+  const { ref: sectionRef, isActive } = useHomeSection("archive")
+  const { reducedMotion } = useHomeInteraction()
+
   return (
-    <section id="archive" className="py-20 md:py-28 px-6 lg:px-8 bg-secondary/30 scroll-mt-16">
-      <div className="mx-auto max-w-6xl">
-        {/* Section header - chapter opening */}
-        <div className="mb-14 md:mb-20">
-          <div className="flex items-baseline gap-4 mb-6">
-            <span className="text-[10px] font-mono text-muted-foreground/40">III</span>
-            <span className="text-[10px] tracking-[0.25em] uppercase text-muted-foreground/50">
-              Archive
-            </span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-            <div className="md:col-span-5">
-              <h2 className="font-serif text-2xl md:text-3xl font-light text-foreground leading-snug">
-                Images, mostly light
-              </h2>
-            </div>
-            <div className="md:col-span-5 md:col-start-7">
-              <p className="text-[13px] text-muted-foreground/60 leading-[1.7]">
-                Photographs taken over the past five years. Most are mornings—
-                light through windows, empty spaces, the interval between things. 
-                A practice rather than a project.
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-          {/* Image arrangement */}
-          <div className="lg:col-span-8">
-            <div className="grid grid-cols-12 gap-3">
-              {/* Main image */}
-              <div className="col-span-7">
-                <div className="relative aspect-[3/4] min-h-[280px] bg-muted overflow-hidden">
-                  <Image
-                    src="/images/archive-1.jpg"
-                    alt="Morning light through blinds"
-                    fill
-                    sizes="(max-width: 1024px) 58vw, 38vw"
-                    className="object-cover"
-                  />
-                </div>
-                <div className="mt-2.5 flex items-baseline justify-between">
-                  <span className="text-[10px] text-muted-foreground/50 font-serif italic">
-                    March, early
-                  </span>
-                  <span className="text-[9px] text-muted-foreground/40 font-mono">
-                    2024
-                  </span>
-                </div>
+    <section
+      ref={sectionRef}
+      id="archive"
+      className={`site-section site-section--before-footer bg-secondary/25 border-t transition-colors duration-300 ease-[var(--site-ease-soft)] home-section ${
+        isActive ? "border-border/45" : "border-border/30"
+      } ${isActive || reducedMotion ? "home-section--active" : ""}`}
+    >
+      <div className="site-container">
+        <div className="group/row">
+          <div className="home-masthead mb-11 md:mb-[3.25rem]">
+            <ChapterLabel chapter="III" label="Archive" />
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10">
+              <div className="md:col-span-6">
+                <h2 className="site-section-title transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)] group-hover/row:text-foreground">
+                  Selected images
+                </h2>
               </div>
-              
-              {/* Secondary images stacked */}
-              <div className="col-span-5 flex flex-col gap-3 pt-12">
-                <div>
-                  <div className="relative aspect-square min-h-[120px] bg-muted overflow-hidden">
-                    <Image
-                      src="/images/archive-2.jpg"
-                      alt="Staircase in soft light"
-                      fill
-                      sizes="(max-width: 1024px) 42vw, 27vw"
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="mt-2 flex items-baseline justify-between">
-                    <span className="text-[10px] text-muted-foreground/50 font-serif italic">
-                      Stairwell, afternoon
-                    </span>
-                    <span className="text-[9px] text-muted-foreground/40 font-mono">
-                      2023
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="mt-2">
-                  <div className="relative aspect-[4/3] min-h-[100px] bg-muted overflow-hidden">
-                    <Image
-                      src="/images/featured-project.jpg"
-                      alt="Interior with window"
-                      fill
-                      sizes="(max-width: 1024px) 42vw, 27vw"
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="mt-2 flex items-baseline justify-between">
-                    <span className="text-[10px] text-muted-foreground/50 font-serif italic">
-                      Interior, waiting
-                    </span>
-                    <span className="text-[9px] text-muted-foreground/40 font-mono">
-                      2023
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Context sidebar */}
-          <div className="lg:col-span-4">
-            <div className="lg:sticky lg:top-24 lg:pl-6 lg:border-l lg:border-border/30">
-              <div className="space-y-4 text-[13px] text-muted-foreground/60 leading-[1.7]">
-                <p>
-                  I started photographing in 2019 as a way to pay attention. 
-                  The camera became an excuse to wake up early and notice 
-                  how light moves through a room.
-                </p>
-                <p>
-                  These aren&apos;t trying to be art. They&apos;re more like notes—
-                  a record of mornings that seemed worth remembering.
+              <div className="md:col-span-5 md:col-start-8">
+                <p className="site-description max-w-[34ch] md:max-w-none transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)] group-hover/row:text-muted-foreground/68 whitespace-pre-line">
+                  {`Selected images, kept over time.
+Only the frames that stayed.`}
                 </p>
               </div>
-              
-              {/* Archive details */}
-              <div className="mt-8 pt-5 border-t border-border/30">
-                <div className="flex flex-col gap-3 text-[10px]">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground/40 uppercase tracking-wider">Images</span>
-                    <span className="text-foreground/60 font-mono">247</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground/40 uppercase tracking-wider">Period</span>
-                    <span className="text-foreground/60 font-mono">2019–24</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground/40 uppercase tracking-wider">Last added</span>
-                    <span className="text-foreground/60 font-mono">Mar 2024</span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Archive link */}
-              <div className="mt-6">
-                <Link 
-                  href="/archive"
-                  className="text-[11px] tracking-[0.15em] uppercase text-foreground/70 hover:text-foreground transition-colors flex items-center gap-2 group"
-                >
-                  <span>View archive</span>
-                  <ArrowUpRight className="w-3 h-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                </Link>
-              </div>
             </div>
           </div>
+
+          <Link
+            href={routes.archive}
+            className="group block site-focus-ring"
+          >
+            <SectionRule groupInteractive emphasize={isActive} />
+            <div className="relative pt-10 md:pt-12">
+              <div className="max-w-2xl">
+                <p className="site-kicker mb-4 transition-colors duration-[var(--site-duration-fast)] group-hover/row:text-muted-foreground/55 group-hover:text-muted-foreground/55">
+                  From the archive
+                </p>
+                <p className="text-[14px] md:text-[15px] text-muted-foreground/68 leading-[1.76] whitespace-pre-line transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)] group-hover/row:text-muted-foreground/78 group-hover:text-muted-foreground/78">
+                  {`Film photographs, kept quietly.
+Mostly 35mm.
+Mostly ordinary light.
+
+A file, not a wall.`}
+                </p>
+                <div className="site-cta-rule border-border/30 transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)] group-hover/row:border-border/44">
+                  <span className="text-[11px] tracking-[0.12em] uppercase site-cta-text">
+                    Archive ↗
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Link>
         </div>
       </div>
+      <div
+        id="home-margin-object-end"
+        className="h-px w-px -mt-px opacity-0 pointer-events-none"
+        aria-hidden
+      />
     </section>
   )
 }

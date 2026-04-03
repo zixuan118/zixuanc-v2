@@ -1,103 +1,123 @@
+"use client"
+
 import Link from "next/link"
-
-const footerLinks = [
-  { label: "Twitter", href: "https://twitter.com" },
-  { label: "Are.na", href: "https://are.na" },
-  { label: "GitHub", href: "https://github.com" },
-  { label: "Read.cv", href: "https://read.cv" },
-]
-
-const siteIndex = [
-  { label: "Work", href: "/work", chapter: "I" },
-  { label: "Notes", href: "/notes", chapter: "II" },
-  { label: "Archive", href: "/archive", chapter: "III" },
-  { label: "About", href: "/about", chapter: "IV" },
-]
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react"
+import { footerIndexNav, siteConfig } from "@/config/site"
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
 
 export function Footer() {
+  const year = new Date().getFullYear()
+  const reducedMotion = usePrefersReducedMotion()
+  const footerRef = useRef<HTMLElement>(null)
+  const [entered, setEntered] = useState(false)
+
+  useLayoutEffect(() => {
+    if (reducedMotion) {
+      setEntered(true)
+      return
+    }
+    const el = footerRef.current
+    if (!el) return
+    if (el.getBoundingClientRect().top < window.innerHeight + 100) {
+      setEntered(true)
+    }
+  }, [reducedMotion])
+
+  useEffect(() => {
+    if (reducedMotion || entered) return
+    const el = footerRef.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            setEntered(true)
+            io.disconnect()
+            break
+          }
+        }
+      },
+      { rootMargin: "0px 0px 10% 0px", threshold: 0.02 }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [reducedMotion, entered])
+
   return (
-    <footer className="py-16 md:py-24 px-6 lg:px-8 border-t border-border/40">
-      <div className="mx-auto max-w-6xl">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-8">
-          {/* Left column - Identity */}
-          <div className="md:col-span-5">
-            <Link href="/" className="group inline-block mb-6">
-              <span className="font-serif text-xl text-foreground">
-                Zixuan Chen
+    <footer
+      ref={footerRef}
+      id="site-footer"
+      className={`relative mt-24 md:mt-[8.5rem] lg:mt-40 border-t border-border/22 pt-14 md:pt-20 pb-14 md:pb-20 px-6 lg:px-8 transition-[opacity,transform] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+        entered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
+      }`}
+      style={{
+        transitionDuration: reducedMotion ? "0ms" : "680ms",
+      }}
+    >
+      <div className="mx-auto max-w-6xl opacity-[0.76]">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-x-12 lg:gap-x-14 md:gap-y-8">
+          <div className="md:col-span-7 md:pr-4">
+            <Link
+              href="/"
+              className="inline-block rounded-sm outline-none transition-opacity duration-200 ease-[var(--site-ease-soft)] hover:opacity-85 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <span className="font-serif text-[1.0625rem] md:text-[1.125rem] text-foreground/70 tracking-[-0.01em]">
+                {siteConfig.title}
               </span>
             </Link>
-            <p className="text-[13px] text-muted-foreground/70 max-w-xs leading-[1.7] mb-6">
-              Thank you for visiting. This site is a working archive—
-              updated as projects complete and thoughts clarify.
+
+            <p className="mt-5 text-[13px] md:text-[14px] text-muted-foreground/52 leading-[1.52]">
+              Boston
             </p>
-            <div className="flex flex-col gap-2">
-              <Link 
-                href="mailto:hello@zixuan.co"
-                className="text-[12px] text-foreground/80 hover:text-foreground transition-colors duration-300 w-fit"
+
+            <div className="mt-5 flex flex-col gap-1">
+              <a
+                href={`mailto:${siteConfig.email}`}
+                className="text-[12px] text-muted-foreground/58 hover:text-muted-foreground/78 w-fit rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background underline-offset-[3px] decoration-border/35 hover:decoration-border/55 underline transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)]"
               >
-                hello@zixuan.co
-              </Link>
-              <span className="text-[11px] text-muted-foreground/50 font-serif italic">
-                San Francisco, California
-              </span>
+                {siteConfig.email}
+              </a>
+              <a
+                href={siteConfig.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[12px] text-muted-foreground/58 hover:text-muted-foreground/78 w-fit rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background underline-offset-[3px] decoration-border/35 hover:decoration-border/55 underline transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)]"
+              >
+                LinkedIn ↗
+              </a>
             </div>
+
+            <p className="mt-10 text-[11px] text-muted-foreground/42 leading-[1.65] max-w-md">
+              All text and images by Zixuan Chen, {year}
+            </p>
           </div>
-          
-          {/* Middle column - Index with chapters */}
-          <div className="md:col-span-3">
-            <span className="text-[9px] tracking-[0.25em] uppercase text-muted-foreground/50 block mb-5">
-              Site Index
+
+          <div className="md:col-span-5 md:text-right md:pt-3 lg:pt-4">
+            <span className="text-[8.5px] tracking-[0.32em] uppercase text-muted-foreground/34 block mb-3.5 md:ml-auto md:w-fit">
+              Index
             </span>
-            <div className="flex flex-col gap-3">
-              {siteIndex.map((link) => (
+            <nav
+              className="flex flex-col gap-[0.45rem] md:items-end"
+              aria-label="Site index"
+            >
+              {footerIndexNav.map((link) => (
                 <Link
-                  key={link.label}
+                  key={link.href}
                   href={link.href}
-                  className="group flex items-baseline gap-3 text-[12px] text-foreground/70 hover:text-foreground transition-colors duration-300 w-fit"
+                  className="group/idx flex items-baseline gap-[0.65rem] text-[11.5px] leading-[1.42] text-muted-foreground/50 hover:text-muted-foreground/72 w-fit md:ml-auto rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)]"
                 >
-                  <span className="text-[10px] font-mono text-muted-foreground/40 w-4">
+                  <span className="text-[9.5px] font-mono text-muted-foreground/32 tabular-nums w-[1.35rem] shrink-0 md:w-[1.5rem] md:text-right transition-colors duration-[var(--site-duration-fast)] group-hover/idx:text-muted-foreground/44">
                     {link.chapter}
                   </span>
-                  {link.label}
+                  <span>{link.label}</span>
                 </Link>
               ))}
-            </div>
-          </div>
-          
-          {/* Right column - Elsewhere */}
-          <div className="md:col-span-4">
-            <span className="text-[9px] tracking-[0.25em] uppercase text-muted-foreground/50 block mb-5">
-              Elsewhere
-            </span>
-            <div className="flex flex-wrap gap-x-5 gap-y-3">
-              {footerLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[12px] text-foreground/70 hover:text-foreground transition-colors duration-300"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-        
-        {/* Colophon - technical metadata */}
-        <div className="mt-16 md:mt-20 pt-6 border-t border-border/30">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4 text-[10px] text-muted-foreground/40">
-              <span className="font-mono">{new Date().getFullYear()}</span>
-              <span className="w-1 h-1 rounded-full bg-muted-foreground/20" />
-              <span className="font-serif italic">All rights reserved</span>
-            </div>
-            <div className="flex items-center gap-4 text-[10px] text-muted-foreground/40">
-              <span>Set in Cormorant Garamond & Inter</span>
-              <span className="w-1 h-1 rounded-full bg-muted-foreground/20" />
-              <span className="font-mono">rev. 24.3</span>
-            </div>
+            </nav>
           </div>
         </div>
       </div>

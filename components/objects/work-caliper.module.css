@@ -1,0 +1,38 @@
+.root {
+  position: relative;
+  width: min(162%, 580px);
+  max-width: 100%;
+  aspect-ratio: 1536 / 1024;
+  margin-left: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+.body,
+.parts {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: auto;
+  display: block;
+  image-rendering: auto;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.body {
+  z-index: 1;
+  filter: drop-shadow(0 8px 12px rgba(16, 16, 16, 0.08));
+}
+
+.parts {
+  z-index: 2;
+  transform-origin: center center;
+  filter: drop-shadow(0 8px 12px rgba(16, 16, 16, 0.1));
+}
+
