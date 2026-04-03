@@ -51,8 +51,10 @@ Observations, feelings, and what stayed.`}
                 </div>
 
                 <div className="lg:col-span-8 lg:col-start-5 order-1 lg:order-2">
-                  <div className="max-w-xl border-l border-border/45 pl-5 md:pl-7 py-0.5 transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)] group-hover/row:border-border/55 group-hover:border-border/55">
-                    <p className="text-[14px] md:text-[15px] text-muted-foreground/72 leading-[1.76] font-light whitespace-pre-line transition-colors duration-[var(--site-duration-fast)] group-hover/row:text-muted-foreground/84 group-hover:text-muted-foreground/84">
+                  <div
+                    className="max-w-xl border-l border-border/45 pl-5 md:pl-7 py-0.5 transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)] group-hover/row:border-border/55 group-hover:border-border/55 max-md:ml-auto max-md:border-l-0 max-md:border-r max-md:pl-0 max-md:pr-5 md:border-r-0"
+                  >
+                    <p className="text-[14px] md:text-[15px] text-muted-foreground/72 leading-[1.76] font-light whitespace-pre-line transition-colors duration-[var(--site-duration-fast)] group-hover/row:text-muted-foreground/84 group-hover:text-muted-foreground/84 max-md:text-right md:text-left">
                       {`Some thoughts arrive clearly.
 Some only make sense later.
 

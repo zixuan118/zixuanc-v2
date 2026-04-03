@@ -43,7 +43,7 @@ Only the frames that stayed.`}
           >
             <SectionRule groupInteractive emphasize={isActive} />
             <div className="relative pt-10 md:pt-12">
-              <div className="max-w-2xl">
+              <div className="max-w-2xl max-md:ml-auto max-md:text-right md:text-left">
                 <p className="site-kicker mb-4 transition-colors duration-[var(--site-duration-fast)] group-hover/row:text-muted-foreground/55 group-hover:text-muted-foreground/55">
                   From the archive
                 </p>

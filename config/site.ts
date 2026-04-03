@@ -4,6 +4,8 @@
 
 export const siteConfig = {
   title: "Zixuan Chen",
+  /** Shown in the browser tab (default + `Page · …` template). */
+  browserTitle: "Zixuan - 子炫",
   description:
     "Zixuan Chen is a Boston-based financial analyst and product-minded builder working across software, data, and writing with an eye for clarity, user intent, and quiet detail.",
   email: "adrian.zixuan.chen@gmail.com",
