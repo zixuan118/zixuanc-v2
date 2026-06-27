@@ -18,8 +18,8 @@ export type HomeSectionId = "hero" | "work" | "notes" | "archive" | "footer"
 const SECTION_ORDER: HomeSectionId[] = [
   "hero",
   "work",
-  "notes",
   "archive",
+  "notes",
   "footer",
 ]
 

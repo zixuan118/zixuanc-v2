@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { WorkCaliper } from "@/components/objects/work-caliper"
+import { WorkDataStudioSection } from "@/components/work/work-data-studio-section"
 import { SectionHeading } from "@/components/site/section-heading"
 import { MarginObjectShell } from "@/components/site/margin-object-shell"
 import { SitePage } from "@/components/site/site-page"
@@ -43,21 +43,7 @@ export default function WorkPage() {
       <div className="grid grid-cols-1 gap-14 lg:grid-cols-12 lg:gap-x-10 xl:gap-x-12">
         <div className="lg:col-span-7 min-w-0">
           <WorkFeatured />
-          <section className="mt-16 md:mt-20 border-t border-border/30 pt-9 md:pt-11 max-w-3xl">
-            <p className="site-subsection-label mb-3">Live instrument</p>
-            <h2 className="font-serif text-[1.28rem] md:text-[1.45rem] font-light leading-tight tracking-tight text-foreground">
-              Data interpretation studio
-            </h2>
-            <p className="mt-3 text-[13px] leading-[1.74] text-muted-foreground/66 max-w-2xl">
-              A restrained prototype for reading messy tables. It checks structure
-              first, then offers a small number of comparisons worth attention.
-            </p>
-            <div className="mt-5">
-              <Link href="/work/data-interpretation-studio" className="site-link text-[12.5px]">
-                Open live demo
-              </Link>
-            </div>
-          </section>
+          <WorkDataStudioSection />
           <WorkIndexList />
         </div>
 

@@ -48,7 +48,7 @@ export default function ArchivePage() {
   return (
     <SitePage>
       <SectionHeading
-        chapter="III"
+        chapter="II"
         label="Archive"
         title="Selected"
         description={

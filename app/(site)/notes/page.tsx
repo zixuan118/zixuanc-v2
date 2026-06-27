@@ -20,10 +20,10 @@ export default function NotesPage() {
     <SitePage>
       <SectionHeading
         className="notes-page-masthead"
-        chapter="II"
+        chapter="III"
         label="Notes"
         title="Notes"
-        description="Selected fragments, across time."
+        description="Personal fragments, kept over time."
       />
 
       <div

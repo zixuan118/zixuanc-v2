@@ -30,23 +30,23 @@ export const routes = {
 
 export const headerNav: SiteNavItem[] = [
   { chapter: "I", label: "Work", href: routes.work },
-  { chapter: "II", label: "Notes", href: routes.notes },
-  { chapter: "III", label: "Archive", href: routes.archive },
+  { chapter: "II", label: "Archive", href: routes.archive },
+  { chapter: "III", label: "Notes", href: routes.notes },
   { chapter: "IV", label: "About", href: routes.about },
 ]
 
 export const mobileNav: SiteNavItem[] = [
   { chapter: "I", label: "Work", href: routes.work },
+  { chapter: "II", label: "Archive", href: routes.archive },
+  { chapter: "III", label: "Notes", href: routes.notes },
   { chapter: "IV", label: "About", href: routes.about },
-  { chapter: "II", label: "Notes", href: routes.notes },
-  { chapter: "III", label: "Archive", href: routes.archive },
   { chapter: "V", label: "Contact", href: routes.contact },
 ]
 
 export const footerIndexNav: SiteNavItem[] = [
   { chapter: "I", label: "Work", href: routes.work },
-  { chapter: "II", label: "Notes", href: routes.notes },
-  { chapter: "III", label: "Archive", href: routes.archive },
+  { chapter: "II", label: "Archive", href: routes.archive },
+  { chapter: "III", label: "Notes", href: routes.notes },
   { chapter: "IV", label: "About", href: routes.about },
   { chapter: "V", label: "Contact", href: routes.contact },
 ]

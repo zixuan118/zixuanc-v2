@@ -1,5 +1,6 @@
 import type {
   AnalysisResult,
+  ComparisonReadiness,
   ConfidenceBreakdown,
   CategoricalObservation,
   ColumnKind,
@@ -12,6 +13,118 @@ import type {
   ParsedCsv,
 } from "@/lib/data-studio/types"
 import type { SecondReadingResponse } from "@/lib/data-studio/second-reading"
+import { cleanDataset } from "@/lib/data-studio/clean"
+import {
+  buildAnalysisPlan,
+  buildAuditSummary,
+  buildStructuralFindings,
+} from "@/lib/data-studio/plan"
+import { buildVisualBoard } from "@/lib/data-studio/visuals"
+import { buildRelationshipCandidates } from "@/lib/data-studio/relationships"
+import {
+  getGroupingSemanticScore,
+  getMetricSemanticScore,
+  getPairConfoundPenalty,
+  isHighCardinalityIdentifier,
+  isIdentifierColumnName,
+  normalizeCategoryForGrouping,
+} from "@/lib/data-studio/columns"
+import {
+  isMissing,
+  parseDateLike,
+  parseNumeric,
+  looksLikeIsoDate,
+} from "@/lib/data-studio/values"
+
+import { dedupeSentences, readinessSummary } from "@/lib/data-studio/copy"
+
+function computeReadiness(
+  verdict: ComparisonVerdict,
+  confidence: ConfidenceBreakdown,
+  groupingSemantic: number,
+  outlierRate: number,
+  minGroupCount: number,
+): ComparisonReadiness {
+  if (verdict === "invalid") return "not-recommended"
+  if (verdict === "weak") {
+    if (groupingSemantic >= 0.85 && confidence.overall !== "low")
+      return "usable-with-caution"
+    return confidence.overall === "low" ? "exploratory" : "usable-with-caution"
+  }
+  if (outlierRate > 0.08 || minGroupCount <= 4) return "usable-with-caution"
+  if (
+    verdict === "valid" &&
+    confidence.overall === "high" &&
+    groupingSemantic >= 0.7 &&
+    outlierRate <= 0.05 &&
+    minGroupCount > 4
+  )
+    return "stable"
+  if (verdict === "valid" && confidence.overall === "high") return "usable-with-caution"
+  if (confidence.overall === "low") return "exploratory"
+  return "usable-with-caution"
+}
+
+function finalizeComparisonReadiness(
+  comparison: ComparisonChoice,
+  metricSummary: NumericSummary | undefined,
+): ComparisonReadiness {
+  const counts = comparison.groupedAverages
+    .map((g) => g.count)
+    .filter((c) => c > 0)
+  const minGroupCount = counts.length > 0 ? Math.min(...counts) : 0
+  const outlierRate =
+    metricSummary && metricSummary.count > 0
+      ? metricSummary.outlierCount / metricSummary.count
+      : 0
+  return computeReadiness(
+    comparison.verdict,
+    comparison.confidence,
+    getGroupingSemanticScore(comparison.groupingColumn),
+    outlierRate,
+    minGroupCount,
+  )
+}
+
+type PreCleanColumnStats = {
+  parseableRateBeforeCleaning: number
+  invalidNumericCountBeforeCleaning: number
+  invalidNumericExamples: string[]
+}
+
+function computePreCleanStats(raw: ParsedCsv): Map<string, PreCleanColumnStats> {
+  const headers = raw.headers.map((h) => h.trim())
+  const out = new Map<string, PreCleanColumnStats>()
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i]
+    const rawKey = raw.headers[i]
+    const values = raw.rows
+      .map((r) => (r[rawKey] ?? r[h] ?? "").trim())
+      .filter((v) => !isMissing(v))
+    const parseableCount = values.filter((v) => parseNumeric(v) !== null).length
+    const rate = parseableCount / Math.max(values.length, 1)
+    const invalidExamples: string[] = []
+    let invalidBefore = 0
+    if (rate >= 0.5) {
+      for (const v of values) {
+        if (
+          parseNumeric(v) === null &&
+          !parseDateLike(v) &&
+          !looksLikeIsoDate(v)
+        ) {
+          invalidBefore += 1
+          if (invalidExamples.length < 3) invalidExamples.push(v)
+        }
+      }
+    }
+    out.set(h, {
+      parseableRateBeforeCleaning: rate,
+      invalidNumericCountBeforeCleaning: invalidBefore,
+      invalidNumericExamples: invalidExamples,
+    })
+  }
+  return out
+}
 
 function mean(values: number[]): number {
   if (values.length === 0) return 0
@@ -43,41 +156,25 @@ function q(sorted: number[], p: number): number {
   return sorted[lo] * (1 - t) + sorted[hi] * t
 }
 
-function isMissing(v: string): boolean {
-  const x = v.trim().toLowerCase()
-  return x === "" || x === "na" || x === "n/a" || x === "null" || x === "-"
-}
-
-function normalizeCategory(v: string): string {
-  return v.trim().replace(/\s+/g, " ").toLowerCase()
-}
-
-function parseNumeric(v: string): number | null {
-  const s = v.trim().replace(/[$,%\s]/g, "")
-  if (s === "") return null
-  const n = Number(s)
-  return Number.isFinite(n) ? n : null
-}
-
-function parseDateLike(v: string): number | null {
-  const t = Date.parse(v.trim())
-  return Number.isFinite(t) ? t : null
-}
-
-function inferColumnKind(values: string[]): ColumnKind {
+function inferColumnKind(
+  values: string[],
+  invalidNumericCount: number,
+): ColumnKind {
   const n = Math.max(values.length, 1)
   const nonMissing = values.filter((v) => !isMissing(v))
   const nonMissingRate = nonMissing.length / n
   if (nonMissingRate < 0.2) return "mostly-empty"
 
-  const numericRate =
+  const parseable =
     nonMissing.filter((v) => parseNumeric(v) !== null).length /
     Math.max(nonMissing.length, 1)
-  if (numericRate >= 0.82) return "numeric"
+  if (parseable >= 0.82 || (parseable >= 0.75 && invalidNumericCount > 0)) {
+    return "numeric"
+  }
 
   const dateRate =
-    nonMissing.filter((v) => parseDateLike(v) !== null).length /
-    Math.max(nonMissing.length, 1)
+    nonMissing.filter((v) => parseDateLike(v) !== null || looksLikeIsoDate(v))
+      .length / Math.max(nonMissing.length, 1)
   if (dateRate >= 0.75) return "date-like"
 
   return "categorical"
@@ -119,37 +216,13 @@ function chooseComparison(
     numericSummaries.map((n) => [n.column, n])
   )
 
-  function isIdentifierName(name: string) {
-    const n = name.trim().toLowerCase()
-    const tokens = n
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim()
-      .split(" ")
-      .filter(Boolean)
-
-    // Treat likely identifiers as unsafe grouping fields.
-    return (
-      n.includes("postal") ||
-      n.includes("order id") ||
-      n.includes("customer id") ||
-      n.includes("row id") ||
-      tokens.includes("id") ||
-      tokens.includes("code") ||
-      tokens.includes("zip") ||
-      tokens.includes("number")
-    )
-  }
-
-  function uniqueRatioOf(p: ColumnProfile) {
-    return p.uniqueCount / totalCount
-  }
-
-  // Step 1 — groupingCandidates
   function isValidGrouping(p: ColumnProfile) {
-    if (p.kind === "numeric") return false
-    if (isIdentifierName(p.name)) return false
+    if (p.kind === "numeric" || p.kind === "mostly-empty") return false
+    if (isIdentifierColumnName(p.name)) return false
+    if (isHighCardinalityIdentifier(p, totalCount)) return false
     if (p.uniqueCount < 2 || p.uniqueCount > 12) return false
     if (uniqueRatioOf(p) >= 0.3) return false
+    if (getGroupingSemanticScore(p.name) < 0) return false
     return true
   }
 
@@ -165,52 +238,19 @@ function chooseComparison(
 
   const groupingCandidates = profiles
     .filter((p) => isValidGrouping(p))
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort(
+      (a, b) =>
+        getGroupingSemanticScore(b.name) - getGroupingSemanticScore(a.name) ||
+        a.name.localeCompare(b.name),
+    )
 
-  // Step 2 — metricCandidates (must be an array)
+  function uniqueRatioOf(p: ColumnProfile) {
+    return p.uniqueCount / totalCount
+  }
+
+  // Step 2 — metricCandidates
   function getSemanticScore(name: string): number {
-    const n = name.trim().toLowerCase()
-    const tokens = n
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim()
-      .split(" ")
-      .filter(Boolean)
-
-    const hasAnyToken = (list: string[]) =>
-      list.some((t) => tokens.includes(t))
-
-    // Strong negative: identifiers and key-like fields.
-    if (hasAnyToken(["id", "code", "zip", "number", "key"])) return -1.0
-    if (n.includes("postal")) return -0.9
-
-    // Strong positive signals.
-    if (n.includes("sales") || n.includes("revenue") || n.includes("profit")) {
-      return 0.9
-    }
-
-    // Medium positives.
-    if (
-      n.includes("cost") ||
-      n.includes("price") ||
-      n.includes("margin")
-    ) {
-      return 0.6
-    }
-    if (n.includes("quantity")) return 0.6
-
-    // Neutral / weak positive.
-    if (
-      n.includes("amount") ||
-      n.includes("total") ||
-      n.includes("value") ||
-      n.includes("units") ||
-      n.includes("count")
-    ) {
-      return 0.25
-    }
-
-    // Unknown / neutral.
-    return 0
+    return getMetricSemanticScore(name)
   }
 
   type MetricCandidate = {
@@ -251,7 +291,7 @@ function chooseComparison(
       if (isMissing(gRaw) || isMissing(mRaw)) continue
       const m = parseNumeric(mRaw)
       if (m === null) continue
-      groups.add(normalizeCategory(gRaw))
+      groups.add(normalizeCategoryForGrouping(gRaw))
     }
     return groups.size
   }
@@ -284,6 +324,8 @@ function chooseComparison(
 
       const outlierRate = m.count > 0 ? m.outlierCount / m.count : 1
       const outlierPenalty = Math.min(0.5, outlierRate * 0.6)
+      const groupingSemantic = getGroupingSemanticScore(g.name)
+      const confoundPenalty = getPairConfoundPenalty(g.name, m.column)
       const band = semanticBand(semanticScore)
       const semanticAdjustment =
         band === "strong" ? 0.95 : band === "usable" ? 0.35 : -0.9
@@ -295,6 +337,8 @@ function chooseComparison(
         metricMissingPenalty -
         outlierPenalty +
         semanticScore * 0.8 +
+        groupingSemantic * 1.25 -
+        confoundPenalty * 1.6 +
         semanticAdjustment
 
       pairScores.push({
@@ -354,22 +398,28 @@ function chooseComparison(
     return Math.max(lo, Math.min(hi, x))
   }
 
-  const agg = new Map<string, { sum: number; count: number }>()
+  const agg = new Map<string, { sum: number; count: number; display: string }>()
   for (const row of rows) {
     const gRaw = row[best.grouping.name]
     const mRaw = row[best.metric.column]
     if (isMissing(gRaw) || isMissing(mRaw)) continue
     const mVal = parseNumeric(mRaw)
     if (mVal === null) continue
-    const g = normalizeCategory(gRaw)
-    const cur = agg.get(g) ?? { sum: 0, count: 0 }
+    const gKey = normalizeCategoryForGrouping(gRaw)
+    const display = gRaw.trim()
+    const cur = agg.get(gKey) ?? { sum: 0, count: 0, display }
     cur.sum += mVal
     cur.count += 1
-    agg.set(g, cur)
+    cur.display = display
+    agg.set(gKey, cur)
   }
 
-  const groupedAverages = [...agg.entries()]
-    .map(([group, v]) => ({ group, value: v.sum / v.count, count: v.count }))
+  const groupedAverages = [...agg.values()]
+    .map((v) => ({
+      group: v.display,
+      value: v.sum / v.count,
+      count: v.count,
+    }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 7)
 
@@ -431,7 +481,7 @@ function chooseComparison(
         if (isMissing(gRaw) || isMissing(mRaw)) continue
         const mVal = parseNumeric(mRaw)
         if (mVal === null) continue
-        const g = normalizeCategory(gRaw)
+        const g = normalizeCategoryForGrouping(gRaw)
         const cur = groups.get(g) ?? { sum: 0, count: 0 }
         cur.sum += mVal
         cur.count += 1
@@ -540,24 +590,17 @@ function chooseComparison(
   if (verdict === "weak" && overall === "high") overall = "medium"
   if (hasCompetingDriver && overall === "high") overall = "medium"
 
+  const readiness = computeReadiness(
+    verdict,
+    { semantic, structure, stability, overall },
+    getGroupingSemanticScore(best.grouping.name),
+    outlierRate,
+    minCount,
+  )
+
+  const reason = `Readiness: ${readiness.replace(/-/g, " ")}. ${best.grouping.name} is compared against ${best.metric.column} using cleaned rows. ${verdict === "weak" ? "Outliers or small groups may affect the result." : "The pairing passed basic structure checks."}`
+
   const confidence: ConfidenceBreakdown = { semantic, structure, stability, overall }
-
-  const verdictLine =
-    verdict === "valid"
-      ? "The comparison is defensible."
-      : "The comparison is usable, but not primary."
-  const driverLine = hasCompetingDriver
-    ? `A stronger explanatory split appears elsewhere (${dominant.primaryDriver}).`
-    : "No stronger competing driver clearly dominates this lens."
-  const confidenceLine =
-    overall === "high"
-      ? "Confidence remains high because semantic meaning and structure both hold without major distortion."
-      : overall === "medium"
-        ? "Confidence remains moderate because the lens is readable but constrained by structure."
-        : "Confidence remains low because structural support is narrow."
-  const reason = `This pairing is accepted as a judgment rather than a default chart. ${best.grouping.name} is structurally readable for ${best.metric.column}, and the metric carries ${semantic >= 0.7 ? "strong" : semantic >= 0.3 ? "usable" : "limited"} semantic meaning. ${verdictLine} ${driverLine} Confidence is ${overall}. ${confidenceLine}`
-
-  // Step 7 — return result
   return {
     comparison: {
       groupingColumn: best.grouping.name,
@@ -566,6 +609,7 @@ function chooseComparison(
       groupedAverages,
       confidence,
       verdict,
+      readiness,
       dominantDriver: hasCompetingDriver && dominant.primaryDriver
         ? {
             primaryDriver: dominant.primaryDriver,
@@ -633,39 +677,73 @@ export function computeTension(
   if (firstPassStrong && (outlierInstability || driverInstability)) return "high"
 
   if (firstPassWeak && !textReinforcement) return "low"
-  if (confidence.overall === "medium" || structuralInstability || textReinforcement) {
-    return "medium"
-  }
+
+  if (firstPassStrong && textReinforcement && !structuralInstability) return "medium"
+  if (firstPassWeak && textReinforcement) return "medium"
 
   return "low"
 }
 
-export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
-  const { headers, rows } = parsed
+export function analyzeDataset(rawParsed: ParsedCsv): AnalysisResult {
+  const preCleanStats = computePreCleanStats(rawParsed)
+  const { cleaned, cleaning } = cleanDataset(rawParsed)
+  const { headers, rows } = cleaned
   const rowCount = rows.length
   const columnCount = headers.length
 
-  const duplicateSet = new Set<string>()
-  let duplicateRowCount = 0
-  for (const row of rows) {
-    const key = headers.map((h) => (row[h] ?? "").trim()).join("||")
-    if (duplicateSet.has(key)) duplicateRowCount += 1
-    duplicateSet.add(key)
-  }
+  const duplicateRowCount = cleaning.duplicateRowsRemoved
 
   const columnProfiles: ColumnProfile[] = headers.map((name) => {
     const values = rows.map((r) => r[name] ?? "")
     const miss = values.filter(isMissing).length
-    const uniq = new Set(values.filter((v) => !isMissing(v))).size
+    const nonMissing = values.filter((v) => !isMissing(v))
+    const rawNonEmptyCount = nonMissing.length
+    const parseableAfter =
+      nonMissing.filter((v) => parseNumeric(v) !== null).length /
+      Math.max(nonMissing.length, 1)
+    const pre = preCleanStats.get(name) ?? {
+      parseableRateBeforeCleaning: parseableAfter,
+      invalidNumericCountBeforeCleaning: 0,
+      invalidNumericExamples: [] as string[],
+    }
+    let postInvalid = 0
+    if (pre.parseableRateBeforeCleaning >= 0.5) {
+      for (const v of nonMissing) {
+        if (parseNumeric(v) === null) postInvalid += 1
+      }
+    }
+    const invalidConverted = Math.max(
+      0,
+      pre.invalidNumericCountBeforeCleaning - postInvalid,
+    )
+    const kind = inferColumnKind(
+      values,
+      pre.invalidNumericCountBeforeCleaning,
+    )
+    const uniq = new Set(nonMissing).size
     const normUniq = new Set(
-      values.filter((v) => !isMissing(v)).map(normalizeCategory)
+      nonMissing.map(normalizeCategoryForGrouping),
     ).size
+    const cleanedValueCount =
+      kind === "numeric"
+        ? nonMissing.filter((v) => parseNumeric(v) !== null).length
+        : nonMissing.length
     return {
       name,
-      kind: inferColumnKind(values),
+      kind,
       missingRate: miss / Math.max(values.length, 1),
       uniqueCount: uniq,
       normalizedUniqueCount: normUniq,
+      parseableRateAfterCleaning: parseableAfter,
+      parseableRateBeforeCleaning: pre.parseableRateBeforeCleaning,
+      invalidNumericCountBeforeCleaning:
+        kind === "numeric" ? pre.invalidNumericCountBeforeCleaning : 0,
+      invalidNumericValuesConverted:
+        kind === "numeric" ? invalidConverted : 0,
+      invalidNumericExamples:
+        kind === "numeric" ? pre.invalidNumericExamples : [],
+      cleanedValueCount,
+      rawNonEmptyCount,
     }
   })
 
@@ -698,8 +776,7 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
     .filter((p) => p.kind === "categorical")
     .map((p) => {
       const nonMissing = Math.round((1 - p.missingRate) * rowCount)
-      const highCardinalityLikely =
-        nonMissing > 20 && p.uniqueCount / Math.max(nonMissing, 1) > 0.6
+      const highCardinalityLikely = isHighCardinalityIdentifier(p, rowCount)
       const driftLikely = p.normalizedUniqueCount < p.uniqueCount
       return {
         column: p.name,
@@ -714,53 +791,18 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
     .map((p) => ({ column: p.name, missingRate: p.missingRate }))
     .sort((a, b) => b.missingRate - a.missingRate)
 
-  const structuralFindings = []
-  if (duplicateRowCount > 0) {
-    structuralFindings.push({
-      label: "Duplicate rows",
-      detail: `${duplicateRowCount} rows repeat exactly and may inflate aggregate comparisons.`,
-    })
-  }
-  const highMissing = missingnessByColumn.filter((m) => m.missingRate >= 0.15)
-  if (highMissing.length > 0) {
-    structuralFindings.push({
-      label: "Missingness concentration",
-      detail: `${highMissing
-        .slice(0, 3)
-        .map((m) => `${m.column} (${(m.missingRate * 100).toFixed(0)}%)`)
-        .join(", ")} show the largest data gaps.`,
-    })
-  }
-  const driftCols = categoricalObservations.filter((c) => c.driftLikely)
-  if (driftCols.length > 0) {
-    structuralFindings.push({
-      label: "Category formatting drift",
-      detail: `${driftCols
-        .slice(0, 2)
-        .map((c) => c.column)
-        .join(", ")} likely contain casing or spacing inconsistencies.`,
-    })
-  }
-  const hiCardCols = categoricalObservations.filter((c) => c.highCardinalityLikely)
-  if (hiCardCols.length > 0) {
-    structuralFindings.push({
-      label: "Suspicious high cardinality",
-      detail: `${hiCardCols
-        .slice(0, 2)
-        .map((c) => c.column)
-        .join(", ")} may behave more like identifiers than comparison groups.`,
-    })
-  }
-  const outlierCols = numericSummaries.filter((n) => n.outlierCount > 0)
-  if (outlierCols.length > 0) {
-    structuralFindings.push({
-      label: "Outlier concentration",
-      detail: `${outlierCols
-        .slice(0, 2)
-        .map((n) => `${n.column} (${n.outlierCount})`)
-        .join(", ")} include values that carry disproportionate weight.`,
-    })
-  }
+  const audit = buildAuditSummary({
+    columnProfiles,
+    missingnessByColumn,
+    categoricalObservations,
+    numericSummaries,
+  })
+
+  const structuralFindings = buildStructuralFindings({
+    cleaningDuplicateRows: cleaning.duplicateRowsRemoved,
+    audit,
+    invalidNumericSummary: audit.invalidNumericSummary,
+  })
 
   const initialDecision = chooseComparison(
     rows,
@@ -800,25 +842,29 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
       .filter((p) => p.kind === "date-like")
       .map((p) => p.name),
     mostlyEmptyColumns: columnProfiles
-      .filter((p) => p.kind === "mostly-empty")
+      .filter((p) => p.missingRate >= 0.8 && p.missingRate < 1)
+      .map((p) => p.name),
+    emptyColumns: columnProfiles
+      .filter((p) => p.missingRate >= 1)
       .map((p) => p.name),
   }
 
   function generateDecisionDrivers(input: {
     outlierCols: NumericSummary[]
     driftCols: CategoricalObservation[]
-    duplicateCount: number
+    duplicatesRemoved: number
+    remainingDuplicates: number
     dominantDriver: ComparisonChoice["dominantDriver"] | null
     comparison: ComparisonChoice | null
   }): DecisionDriver[] {
     const candidates: Omit<DecisionDriver, "total">[] = []
     const selectedLabel = input.comparison
       ? `${input.comparison.groupingColumn} × ${input.comparison.metricColumn}`
-      : "current lens"
+      : "selected comparison"
 
     if (input.comparison && input.comparison.confidence.semantic >= 0.7) {
       candidates.push({
-        text: "The selected metric retains enough semantic strength to keep the current comparison usable.",
+        text: "The selected metric has clear enough meaning to keep this comparison usable.",
         impact: 2,
         scope: 2,
         risk: 2,
@@ -835,7 +881,7 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
       input.comparison.groupedAverages.length <= 8
     ) {
       candidates.push({
-        text: `${input.comparison.groupingColumn} preserves enough structural coherence to avoid rejection of ${selectedLabel}.`,
+        text: `${input.comparison.groupingColumn} has enough groups to support ${selectedLabel}.`,
         impact: 2,
         scope: 2,
         risk: 2,
@@ -847,35 +893,52 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
     }
 
     if (input.outlierCols.length > 0) {
-      const top = input.outlierCols.slice().sort((a, b) => b.outlierCount - a.outlierCount)[0]
-      const rate = top.count > 0 ? top.outlierCount / top.count : 0
-      const isSelectedMetric =
-        !!input.comparison && input.comparison.metricColumn === top.column
-      candidates.push({
-        text: input.comparison
-          ? `Outliers in ${top.column} reduce confidence in ${selectedLabel} and distort comparison reliability.`
-          : `Outliers in ${top.column} reduce reliability and bias any defensible grouping-metric decision.`,
-        impact: rate > 0.2 ? 3 : 2,
-        scope: isSelectedMetric ? 3 : 1,
-        risk: 3,
-        specificity: 2,
-        decisionRelevance: isSelectedMetric ? 3 : 1,
-        alignment: rate > 0.35 ? "blocks" : "weakens",
-        affects: rate > 0.35 ? ["comparison", "verdict", "confidence"] : ["confidence", "tension"],
-      })
+      const selectedMetricCol = input.comparison?.metricColumn
+      const relevantOutliers = selectedMetricCol
+        ? input.outlierCols.filter((n) => n.column === selectedMetricCol)
+        : input.outlierCols
+      if (relevantOutliers.length > 0) {
+        const top = relevantOutliers
+          .slice()
+          .sort((a, b) => b.outlierCount - a.outlierCount)[0]
+        const rate = top.count > 0 ? top.outlierCount / top.count : 0
+        candidates.push({
+          text: input.comparison
+            ? `Outliers in ${top.column} reduce confidence in ${selectedLabel}.`
+            : `Outliers in ${top.column} reduce reliability for any grouping comparison.`,
+          impact: rate > 0.2 ? 3 : 2,
+          scope: 3,
+          risk: 3,
+          specificity: 2,
+          decisionRelevance: 3,
+          alignment: rate > 0.35 ? "blocks" : "weakens",
+          affects:
+            rate > 0.35
+              ? ["comparison", "verdict", "confidence"]
+              : ["confidence", "tension"],
+        })
+      }
     }
 
-    if (input.duplicateCount > 0) {
-      const duplicateRate = input.duplicateCount / Math.max(rowCount, 1)
+    if (input.duplicatesRemoved > 0 && input.remainingDuplicates === 0) {
       candidates.push({
-        text: input.comparison
-          ? `${input.duplicateCount} duplicate rows slightly inflate aggregates, weakening summary reliability for ${selectedLabel}.`
-          : `${input.duplicateCount} duplicate rows inflate repeated patterns and weaken reliability for a comparison decision.`,
-        impact: duplicateRate >= 0.1 ? 3 : 2,
-        scope: duplicateRate >= 0.1 ? 2 : 1,
-        risk: duplicateRate >= 0.08 ? 3 : 2,
+        text: `${input.duplicatesRemoved} duplicate row${input.duplicatesRemoved === 1 ? " was" : "s were"} removed before analysis. Aggregates use cleaned rows only.`,
+        impact: 1,
+        scope: 1,
+        risk: 1,
         specificity: 2,
-        decisionRelevance: duplicateRate >= 0.08 ? 2 : 1,
+        decisionRelevance: 1,
+        alignment: "supports",
+        affects: ["confidence"],
+      })
+    } else if (input.remainingDuplicates > 0) {
+      candidates.push({
+        text: `${input.remainingDuplicates} duplicate row${input.remainingDuplicates === 1 ? "" : "s"} remain after cleaning and may still affect aggregates.`,
+        impact: 2,
+        scope: 2,
+        risk: 2,
+        specificity: 2,
+        decisionRelevance: 2,
         alignment: "weakens",
         affects: ["confidence"],
       })
@@ -884,8 +947,8 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
     if (input.driftCols.length > 0) {
       candidates.push({
         text: input.comparison
-          ? `Category drift in ${input.driftCols[0].column} biases grouping boundaries and limits confidence in ${selectedLabel}.`
-          : `Category drift in ${input.driftCols[0].column} biases grouping boundaries and blocks a defensible comparison.`,
+          ? `Category drift in ${input.driftCols[0].column} may affect grouping for ${selectedLabel}.`
+          : `Category drift in ${input.driftCols[0].column} makes a defensible comparison harder.`,
         impact: 2,
         scope: 1,
         risk: 2,
@@ -898,7 +961,7 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
 
     if (input.dominantDriver?.primaryDriver) {
       candidates.push({
-        text: `A stronger alternative grouping (${input.dominantDriver.primaryDriver}) limits the interpretive weight of ${selectedLabel} and reduces confidence.`,
+        text: `Another grouping (${input.dominantDriver.primaryDriver}) may explain ${selectedLabel} more strongly.`,
         impact: input.dominantDriver.strength >= 0.2 ? 3 : 2,
         scope: 2,
         risk: 3,
@@ -911,7 +974,7 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
 
     if (!input.comparison) {
       candidates.push({
-        text: "No grouping establishes a stable explanatory structure, so comparison is withheld.",
+        text: "No grouping passed basic checks, so no comparison is shown.",
         impact: 3,
         scope: 3,
         risk: 3,
@@ -938,10 +1001,14 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
       })
   }
 
+  const outlierCols = numericSummaries.filter((n) => n.outlierCount > 0)
+  const driftCols = categoricalObservations.filter((c) => c.driftLikely)
+
   const rankedDrivers = generateDecisionDrivers({
     outlierCols,
     driftCols,
-    duplicateCount: duplicateRowCount,
+    duplicatesRemoved: cleaning.duplicateRowsRemoved,
+    remainingDuplicates: cleaning.remainingDuplicateRowCount,
     dominantDriver: comparison?.dominantDriver ?? null,
     comparison,
   })
@@ -957,7 +1024,7 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
   if (comparison && topBlocks.length > 0 && topBlocks[0].total >= 9) {
     comparison = null
     noComparisonReason =
-      "No comparison is accepted.\n\nThe current structure does not support a defensible grouping–metric relationship.\n\nPresenting a comparison here would introduce more distortion than insight."
+      "No comparison is accepted. The current structure does not support a defensible grouping and metric pairing."
   }
 
   if (comparison) {
@@ -993,63 +1060,57 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
       comparison.confidence.overall = "medium"
     }
 
-    const confidenceCause =
-      comparison.confidence.overall === "high"
-        ? "Confidence remains high because structural and semantic support outweigh identified distortion."
-        : comparison.confidence.overall === "medium"
-          ? "Confidence is reduced because the current lens remains exposed to structural instability."
-          : "Confidence is low because the current lens remains materially weakened."
-
-    const driverSummary =
+    const metricSummary = numericSummaries.find(
+      (n) => n.column === comparison.metricColumn,
+    )
+    comparison.readiness = finalizeComparisonReadiness(comparison, metricSummary)
+    comparison.reason =
       topDrivers.length > 0
-        ? topDrivers.map((d) => d.text).join(" ")
-        : "No strong decision driver was retained."
-    comparison.reason = `${driverSummary} ${confidenceCause}`
+        ? dedupeSentences(topDrivers.map((d) => d.text).join(" "))
+        : ""
   }
 
   const interpretationParagraphs: string[] = []
   if (!comparison) {
     interpretationParagraphs.push("No comparison is accepted.")
     interpretationParagraphs.push(
-      "The current structure does not support a defensible grouping–metric relationship."
-    )
-  } else if (
-    comparison.confidence.overall === "low"
-  ) {
-    interpretationParagraphs.push(
-      "This comparison is weak and should not be relied on."
-    )
-    interpretationParagraphs.push(
-      "Confidence is low because structural distortion remains unresolved."
-    )
-    interpretationParagraphs.push(
-      "The table invites comparison, but not yet confidence."
-    )
-  } else if (comparison.verdict === "weak") {
-    interpretationParagraphs.push(
-      "This comparison is usable, but materially constrained."
-    )
-    interpretationParagraphs.push(
-      "The selected lens remains readable, though materially constrained."
-    )
-    interpretationParagraphs.push(
-      "The table invites comparison, but not yet confidence."
+      "The current structure does not support a defensible grouping and metric pairing.",
     )
   } else {
-    interpretationParagraphs.push(
-      "This comparison remains defensible."
-    )
-    interpretationParagraphs.push(
-      "The selected lens is structurally and semantically supportable."
-    )
-    interpretationParagraphs.push(
-      "The table invites comparison, but not yet confidence."
-    )
+    interpretationParagraphs.push(readinessSummary(comparison.readiness))
+    if (comparison.readiness === "exploratory") {
+      interpretationParagraphs.push("Treat findings as descriptive.")
+    }
+    if (cleaning.duplicateRowsRemoved > 0) {
+      interpretationParagraphs.push(
+        `${cleaning.duplicateRowsRemoved} duplicate row${cleaning.duplicateRowsRemoved === 1 ? " was" : "s were"} removed before this comparison was computed.`,
+      )
+    }
   }
 
   const highlights = topDrivers.map((d) => d.text)
 
-  return {
+  const analysisPlan = buildAnalysisPlan({
+    rowCount,
+    columnProfiles,
+    numericSummaries,
+    categoricalObservations,
+    comparison,
+    noComparisonReason,
+  })
+
+  const partial = {
+    profile,
+    missingnessByColumn,
+    numericSummaries,
+    categoricalObservations,
+    comparison,
+    histogram,
+    columnProfiles,
+  }
+  const visualBoard = buildVisualBoard(cleaned, partial)
+
+  const partialResult = {
     profile,
     columnProfiles,
     duplicateRowCount,
@@ -1064,6 +1125,19 @@ export function analyzeDataset(parsed: ParsedCsv): AnalysisResult {
     histogram,
     interpretationParagraphs: interpretationParagraphs.slice(0, 5),
     highlights,
+    cleaning,
+    cleanedParsed: cleaned,
+    audit,
+    analysisPlan,
+    visualBoard,
+    relationshipCandidates: [] as AnalysisResult["relationshipCandidates"],
   }
+
+  partialResult.relationshipCandidates = buildRelationshipCandidates(
+    cleaned,
+    partialResult,
+  )
+
+  return partialResult
 }
 

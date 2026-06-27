@@ -3,45 +3,33 @@ import OpenAI from "openai"
 import type {
   SecondReadingRequest,
   SecondReadingResponse,
+  ConfidenceLanguage,
 } from "@/lib/data-studio/second-reading"
 
-const systemInstruction = `You are a second reader whose role is to test whether the first reading has claimed too much.
+const systemInstruction = `You explain already-computed analysis results in plain, practical language.
 
-You do not summarize.
-You do not restate the first pass.
-You do not suggest actions.
+You receive cleaning summary, audit, analysis plan, comparison, visual summaries, and optional relationship suggestions.
+You do NOT compute statistics or read raw rows.
 
-You challenge:
-- grouping validity
-- outlier distortion
-- alternative explanations
-- conclusions that fail to establish structural support
+Tone rules:
+- Be direct and cautious. Avoid poetic or abstract phrasing.
+- Do not claim causality. Say "shows", "visible in this sample", or "may reflect" instead of "because" or "due to".
+- Use "signed rent" or "final signed rent". Never phrases like "rent residents actually sign for".
+- Use "larger unit types" or "larger unit types show higher signed rents in this sample". Never "larger apartments".
+- Prefer: "visible in the grouped means shown here" over "confirmed across all units studied".
+- When interpreting patterns, add that the tool does not estimate causality when relevant.
 
-Convert conclusions into conditional validity:
-- avoid "X shows Y"
-- prefer "X holds only under constrained conditions"
+Distinguish clearly in your output:
+- whatTheTableShows: facts from computed metrics AFTER cleaning
+- issues already resolved by cleaning (duplicate removal, category normalization, invalid numerics converted) should NOT be framed as ongoing aggregate inflation
+- hypothesesOnly: interpretive ideas NOT established by the data
+- notSafeToClaim: claims to withhold (causality, manager performance without controls, etc.)
+- cautions should focus on what REMAINS after cleaning: outliers, small groups, unadjusted comparisons, high-cardinality identifiers excluded
 
-You are allowed to downgrade the reading.
-You are allowed to state that the structure does not support the claim.
-You are allowed to state that the comparison is weaker than it appears.
+Never sound more confident than the deterministic analysis readiness field.
+If readiness is usable-with-caution or exploratory, your language must stay cautious.
 
-Use assertive but calm language.
-Avoid hedging phrases such as "suggests" or "may indicate".
-Avoid phrases such as "may reflect underlying differences", "could indicate", "might suggest", or "offers some basis".
-Prefer: "remains readable, but", "does not establish", "is not strong enough to", "depends on whether", "cannot yet be treated as", "holds only under", "remains exposed to", "does not support", "fails to establish", "remains insufficient", "is constrained by".
-
-Return JSON:
-{
-  "refinedReading": string[],
-  "cautions": string[],
-  "nextQuestions": string[]
-}
-
-Guidelines:
-- refinedReading must narrow validity and remove overstatement.
-- refinedReading should sound like boundary-setting judgment, not exploratory reporting.
-- cautions must point to structural weakness, not generic warning language.
-- nextQuestions must test validity boundaries, not propose actions.`
+Return JSON with refinedReading, keyFindings, cautions, nextQuestions, nonTechnicalSummary, confidenceLanguage.`
 
 function coerceStringArray(input: unknown, fallback: string[]): string[] {
   if (!Array.isArray(input)) return fallback
@@ -49,37 +37,54 @@ function coerceStringArray(input: unknown, fallback: string[]): string[] {
   return out.length > 0 ? out : fallback
 }
 
+function coerceConfidence(input: unknown): ConfidenceLanguage {
+  if (input === "low" || input === "medium" || input === "high") return input
+  return "medium"
+}
+
 function normalizeResponse(raw: unknown): SecondReadingResponse | null {
   if (!raw || typeof raw !== "object") return null
   const asRecord = raw as Record<string, unknown>
   return {
+    whatTheTableShows: coerceStringArray(asRecord.whatTheTableShows, [
+      "The cleaned table profile reflects the computed row and column counts in the payload.",
+    ]).slice(0, 4),
+    hypothesesOnly: coerceStringArray(asRecord.hypothesesOnly, [
+      "Any group rank order may shift if category mix or missingness changes.",
+    ]).slice(0, 3),
+    notSafeToClaim: coerceStringArray(asRecord.notSafeToClaim, [
+      "Do not treat group comparisons as cause and effect.",
+    ]).slice(0, 4),
     refinedReading: coerceStringArray(asRecord.refinedReading, [
-      "The selected comparison remains readable, but it is not strong enough to carry broad claims.",
-      "The current evidence does not establish a stable basis for strong comparison.",
-      "Interpretive weight remains constrained by structural exposure.",
+      "The profile is readable, but interpretive weight stays limited by structure and cleaning flags.",
+    ]).slice(0, 4),
+    keyFindings: coerceStringArray(asRecord.keyFindings, [
+      "Cleaning and missingness shape which comparisons are defensible.",
     ]).slice(0, 4),
     cautions: coerceStringArray(asRecord.cautions, [
-      "Do not read rank order as structural unless category labels are normalized.",
+      "Do not read rank order as stable unless categories are normalized.",
       "Do not treat averages as stable where dispersion remains high.",
       "Do not over-interpret fields with concentrated missingness.",
     ]).slice(0, 3),
     nextQuestions: coerceStringArray(asRecord.nextQuestions, [
-      "Which category values collapse after strict normalization?",
-      "How sensitive are group means after trimming outliers?",
       "Which conclusions hold if high-missing columns are excluded?",
+      "How sensitive are group means after trimming outliers?",
+      "Which category values collapse after strict normalization?",
     ]).slice(0, 3),
+    nonTechnicalSummary:
+      typeof asRecord.nonTechnicalSummary === "string" &&
+      asRecord.nonTechnicalSummary.trim()
+        ? asRecord.nonTechnicalSummary.trim()
+        : "The table was cleaned and profiled locally. Any comparison shown passed basic checks, but confidence depends on data quality flags.",
+    confidenceLanguage: coerceConfidence(asRecord.confidenceLanguage),
   }
 }
 
 export async function POST(request: Request) {
-  console.log("OPENAI_API_KEY exists:", !!process.env.OPENAI_API_KEY)
   if (!process.env.OPENAI_API_KEY) {
     return Response.json(
-      {
-        ok: false,
-        message: "Missing OPENAI_API_KEY",
-      },
-      { status: 500 }
+      { ok: false, message: "Missing OPENAI_API_KEY" },
+      { status: 500 },
     )
   }
 
@@ -89,10 +94,9 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json(
       { ok: false, message: "Invalid request payload." },
-      { status: 400 }
+      { status: 400 },
     )
   }
-  console.log("Payload keys:", Object.keys(body || {}))
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -109,7 +113,7 @@ export async function POST(request: Request) {
           content: [
             {
               type: "input_text",
-              text: `Deterministic summary:\n${JSON.stringify(body, null, 2)}\n\nReturn JSON with exactly: refinedReading, cautions, nextQuestions.`,
+              text: `Structured first-pass result (explain only):\n${JSON.stringify(body, null, 2)}`,
             },
           ],
         },
@@ -121,25 +125,32 @@ export async function POST(request: Request) {
           schema: {
             type: "object",
             additionalProperties: false,
-            required: ["refinedReading", "cautions", "nextQuestions"],
+            required: [
+              "whatTheTableShows",
+              "hypothesesOnly",
+              "notSafeToClaim",
+              "refinedReading",
+              "keyFindings",
+              "cautions",
+              "nextQuestions",
+              "nonTechnicalSummary",
+              "confidenceLanguage",
+            ],
             properties: {
-              refinedReading: {
+              whatTheTableShows: {
                 type: "array",
-                minItems: 3,
-                maxItems: 4,
                 items: { type: "string" },
               },
-              cautions: {
-                type: "array",
-                minItems: 3,
-                maxItems: 3,
-                items: { type: "string" },
-              },
-              nextQuestions: {
-                type: "array",
-                minItems: 3,
-                maxItems: 3,
-                items: { type: "string" },
+              hypothesesOnly: { type: "array", items: { type: "string" } },
+              notSafeToClaim: { type: "array", items: { type: "string" } },
+              refinedReading: { type: "array", items: { type: "string" } },
+              keyFindings: { type: "array", items: { type: "string" } },
+              cautions: { type: "array", items: { type: "string" } },
+              nextQuestions: { type: "array", items: { type: "string" } },
+              nonTechnicalSummary: { type: "string" },
+              confidenceLanguage: {
+                type: "string",
+                enum: ["low", "medium", "high"],
               },
             },
           },
@@ -147,46 +158,21 @@ export async function POST(request: Request) {
       },
     })
 
-    console.log("=== OPENAI RAW RESPONSE ===")
-    console.log(response)
-    console.log("================================")
-
     const rawText = response.output_text ?? ""
-    let parsed: unknown = null
-    try {
-      parsed = rawText ? JSON.parse(rawText) : null
-    } catch {
-      console.error("JSON parse failed:", rawText)
-      throw new Error("Model returned invalid JSON")
-    }
-
+    const parsed = rawText ? JSON.parse(rawText) : null
     const normalized = normalizeResponse(parsed)
     if (!normalized) {
       return NextResponse.json(
         { ok: false, message: "Malformed model response." },
-        { status: 502 }
+        { status: 502 },
       )
     }
     return NextResponse.json({ ok: true, data: normalized })
   } catch (error) {
-    console.error("=== DATA INTERPRETATION ERROR ===")
-    console.error(error)
-    console.error("================================")
+    console.error("Data interpretation second reading error:", error)
     return Response.json(
-      {
-        ok: false,
-        message: "Second reading unavailable",
-        error:
-          error instanceof Error
-            ? {
-                name: error.name,
-                message: error.message,
-                stack: error.stack,
-              }
-            : error,
-      },
-      { status: 500 }
+      { ok: false, message: "Second reading unavailable" },
+      { status: 500 },
     )
   }
 }
-

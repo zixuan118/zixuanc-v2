@@ -44,10 +44,10 @@ export const NOTES_FRAGMENTS: NotesFragment[] = [
     weight: "whisper",
     dateLabel: "Oct 18, 2017",
     enLines: [
-      "I was made for solitude,",
-      "yet I keep pretending I belong among people.",
+      "We need other people.",
+      "We also need a place they cannot reach.",
     ],
-    cn: "人生来抗拒孤独，\n而我偏爱孤独，却又装作活在人群中。",
+    cn: "人需要人群，\n也需要一处不被人群抵达的地方。",
   },
   {
     id: "2019-01-28",
@@ -137,18 +137,22 @@ export const NOTES_FRAGMENTS: NotesFragment[] = [
     weight: "standard",
     dateLabel: "Dec 26, 2022",
     enLines: [
-      "Prayer does something else too.",
-      "It keeps reminding me",
-      "what still sits at the center of my life.",
+      "A ritual is not escape.",
+      "It is a way of checking",
+      "what still holds the center.",
     ],
-    cn: "祷告还有一个好处是，\n能时刻提醒我，\n当前生活的重心是什么。",
+    cn: "仪式不是逃离，\n是确认什么\n仍然占据中心。",
   },
   {
     id: "2023-03-08",
     weight: "whisper",
     dateLabel: "Mar 8, 2023",
-    enLines: ["Many people feel intensely.", "Very few stop to think."],
-    cn: "很多人只有情绪，\n没有思考。",
+    enLines: [
+      "Feeling arrives first.",
+      "Thinking begins",
+      "when we refuse to stop there.",
+    ],
+    cn: "情绪总是先到。\n而思考开始于，\n我们不愿停在那里。",
   },
   {
     id: "2023-06-13",

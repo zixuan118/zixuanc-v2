@@ -61,3 +61,15 @@ export function parseCsvText(text: string): ParsedCsv {
   return { headers, rows }
 }
 
+export function rowsToCsvText(parsed: ParsedCsv): string {
+  const escape = (v: string) => {
+    if (/[",\n\r]/.test(v)) return `"${v.replace(/"/g, '""')}"`
+    return v
+  }
+  const lines = [parsed.headers.map(escape).join(",")]
+  for (const row of parsed.rows) {
+    lines.push(parsed.headers.map((h) => escape(row[h] ?? "")).join(","))
+  }
+  return lines.join("\n")
+}
+

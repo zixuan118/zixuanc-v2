@@ -1,23 +1,28 @@
 "use client"
 
+import { STUDIO_FLOW } from "@/lib/data-studio/copy"
+
 type AnalysisStagesProps = {
   currentStage: number
   visible: boolean
 }
 
 const stageLabels = [
-  "File read",
-  "Structure inferred",
-  "Irregularities surfaced",
-  "Comparisons justified",
-  "Visual summary",
+  "File intake",
+  "Clean & audit",
+  "Analysis plan",
+  "Visual board",
+  "Second reading",
 ]
 
 export function AnalysisStages({ currentStage, visible }: AnalysisStagesProps) {
   if (!visible) return null
   return (
     <section className="mt-10 border-t border-border/25 pt-7">
-      <p className="site-subsection-label mb-4">Reading process</p>
+      <p className="site-subsection-label mb-2">Workflow</p>
+      <p className="text-[11px] tracking-[0.06em] text-muted-foreground/55 mb-4">
+        {STUDIO_FLOW}
+      </p>
       <div className="space-y-2.5">
         {stageLabels.map((label, idx) => {
           const active = idx <= currentStage
@@ -43,4 +48,3 @@ export function AnalysisStages({ currentStage, visible }: AnalysisStagesProps) {
     </section>
   )
 }
-

@@ -62,7 +62,7 @@ export const workProjects: WorkProject[] = [
       "A maintained index for work, notes, references, and selected images — built as a long-form personal system rather than a portfolio shell.",
     kind: "Personal system",
     lede:
-      "This site is designed less as a showcase and more as a maintained personal system. Work, notes, archive material, and static identity pages sit inside separate sectional logics so different kinds of material can accumulate without flattening into the same presentation style.",
+      "This site is designed less as a showcase and more as a maintained personal system. Work, archive material, notes, and static identity pages sit inside separate sectional logics so different kinds of material can accumulate without flattening into the same presentation style.",
     framing:
       "This site is designed less as a showcase and more as a maintained personal system.",
     body: [

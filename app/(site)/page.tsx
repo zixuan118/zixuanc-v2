@@ -9,8 +9,8 @@ export default function HomePage() {
     <HomeInteractionProvider>
       <HeroSection />
       <FeaturedProject />
-      <WritingSection />
       <VisualFragment />
+      <WritingSection />
     </HomeInteractionProvider>
   )
 }

@@ -64,7 +64,7 @@ is usually quieter than that.`}
                 }}
               >
                 <p className="text-[13px] md:text-[14px] text-muted-foreground/62 leading-[1.72] tracking-[-0.01em] whitespace-pre-line">
-                  {`Financial analysis, product systems, notes, and selected images.
+                  {`Financial analysis, product systems, selected images, and notes.
 A personal file, built slowly.`}
                 </p>
               </div>

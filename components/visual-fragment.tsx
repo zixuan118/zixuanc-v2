@@ -14,14 +14,14 @@ export function VisualFragment() {
     <section
       ref={sectionRef}
       id="archive"
-      className={`site-section site-section--before-footer bg-secondary/25 border-t transition-colors duration-300 ease-[var(--site-ease-soft)] home-section ${
-        isActive ? "border-border/45" : "border-border/30"
-      } ${isActive || reducedMotion ? "home-section--active" : ""}`}
+      className={`site-section site-section--home-notes-spacing home-section ${
+        isActive || reducedMotion ? "home-section--active" : ""
+      }`}
     >
       <div className="site-container">
         <div className="group/row">
           <div className="home-masthead mb-11 md:mb-[3.25rem]">
-            <ChapterLabel chapter="III" label="Archive" />
+            <ChapterLabel chapter="II" label="Archive" />
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10">
               <div className="md:col-span-6">
                 <h2 className="site-section-title transition-colors duration-[var(--site-duration-fast)] ease-[var(--site-ease-soft)] group-hover/row:text-foreground">
@@ -64,11 +64,6 @@ A file, not a wall.`}
           </Link>
         </div>
       </div>
-      <div
-        id="home-margin-object-end"
-        className="h-px w-px -mt-px opacity-0 pointer-events-none"
-        aria-hidden
-      />
     </section>
   )
 }

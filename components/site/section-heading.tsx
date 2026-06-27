@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import { ChapterLabel } from "@/components/site/chapter-label"
 
 /**
- * Split masthead for index pages (Work, Notes, Archive): chapter, title, optional right-column description.
+ * Split masthead for index pages (Work, Archive, Notes): chapter, title, optional right-column description.
  * Aligns with PageShell typography and bottom rule.
  */
 

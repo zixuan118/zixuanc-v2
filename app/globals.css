@@ -160,7 +160,7 @@
     @apply pb-[4.35rem] md:pb-[6rem];
   }
 
-  /** Homepage Notes: slightly tighter vertical rhythm than default section (Archive unchanged). */
+  /** Homepage Archive: slightly tighter vertical rhythm than default section (Notes unchanged). */
   .site-section.site-section--home-notes-spacing {
     @apply py-[4.5rem] md:py-[6.5rem];
   }

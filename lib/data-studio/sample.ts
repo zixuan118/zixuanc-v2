@@ -1,51 +1,148 @@
-export const sampleDatasetCsv = `month,region,segment,revenue,margin,orders
-2025-01,North,Enterprise,182400,0.29,412
-2025-01,South,Mid-Market,121200,0.24,338
-2025-01,West,SMB,84200,0.18,507
-2025-01,East,Enterprise,164100,0.31,356
-2025-02,North,Enterprise,176800,0.28,398
-2025-02,South,Mid Market,118900,0.23,346
-2025-02,West,SMB,90200,0.19,521
-2025-02,East,Enterprise,169200,0.3,362
-2025-03,North,Enterprise,189700,0.32,421
-2025-03,South,Mid-Market,126100,0.25,351
-2025-03,West,SMB,87100,0.17,498
-2025-03,East,Enterprise,171900,0.3,374
-2025-04,North,Enterprise,193400,0.33,430
-2025-04,South,Mid-Market,131500,0.26,360
-2025-04,West,SMB,91500,0.18,536
-2025-04,East,Enterprise,175600,0.31,382
-2025-05,North,Enterprise,201200,0.34,441
-2025-05,South,Mid-Market,136800,0.26,369
-2025-05,West,SMB,93600,0.19,544
-2025-05,East,Enterprise,179300,0.31,390
-2025-06,North,Enterprise,207900,0.35,448
-2025-06,South,mid-market,139400,0.27,376
-2025-06,West,SMB,95100,0.2,552
-2025-06,East,Enterprise,183700,0.32,397
-2025-06,East,Enterprise,183700,0.32,397
-2025-07,North,Enterprise,212300,0.35,455
-2025-07,South,Mid-Market,142600,0.27,380
-2025-07,West,SMB,97300,0.2,563
-2025-07,East,Enterprise,188400,0.33,402
-2025-08,North,Enterprise,218100,0.36,466
-2025-08,South,Mid-Market,145900,0.27,389
-2025-08,West,SMB,98800,0.2,571
-2025-08,East,Enterprise,191500,0.33,410
-2025-09,North,Enterprise,224600,0.37,472
-2025-09,South,Mid-Market,149300,0.28,397
-2025-09,West,SMB,101200,0.21,579
-2025-09,East,Enterprise,196900,0.34,417
-2025-10,North,Enterprise,231800,0.37,484
-2025-10,South,Mid-Market,153100,0.28,406
-2025-10,West,SMB,103900,0.21,588
-2025-10,East,Enterprise,200800,0.34,423
-2025-11,North,Enterprise,239200,0.38,495
-2025-11,South,Mid-Market,157700,0.29,414
-2025-11,West,SMB,106400,0.21,594
-2025-11,East,Enterprise,205100,0.35,431
-2025-12,North,Enterprise,247800,0.38,506
-2025-12,South,Mid-Market,162300,0.29,423
-2025-12,West,SMB,108900,0.22,603
-2025-12,East,Enterprise,,0.35,438`
+/**
+ * Built-in demo dataset: medium-complexity business analytics (not domain-specific).
+ * ~60 rows, controlled messiness for cleaning/audit demos.
+ */
 
+const MONTHS = [
+  "2025-01",
+  "2025-02",
+  "2025-03",
+  "2025-04",
+  "2025-05",
+  "2025-06",
+  "2025-07",
+  "2025-08",
+  "2025-09",
+  "2025-10",
+  "2025-11",
+  "2025-12",
+]
+
+type Segment = "Enterprise" | "Mid-Market" | "SMB"
+
+function segmentBase(segment: Segment, monthIdx: number): number {
+  const growth = monthIdx * 1.04
+  if (segment === "Enterprise") return Math.round(178000 + growth * 5200)
+  if (segment === "Mid-Market") return Math.round(119000 + growth * 3100)
+  return Math.round(83500 + growth * 1750)
+}
+
+function marginFor(
+  revenue: number,
+  segment: Segment,
+  channelIdx: number,
+  discount: number,
+  salt: number,
+): string {
+  const base =
+    segment === "Enterprise" ? 0.29 : segment === "Mid-Market" ? 0.24 : 0.2
+  const channelEffect = [0.02, -0.015, -0.02, 0.01, -0.008][channelIdx] ?? 0
+  const noise = ((salt * 17) % 29) * 0.0045 - 0.055
+  const revDrag = -(revenue / 260000) * 0.06
+  const discountDrag = -discount * 0.28
+  const m = base + channelEffect + noise + revDrag + discountDrag
+  return Math.max(0.14, Math.min(0.38, m)).toFixed(2)
+}
+
+function ordersFor(revenue: number, segment: Segment): number {
+  const avg =
+    segment === "Enterprise" ? 420 : segment === "Mid-Market" ? 310 : 520
+  return Math.round(revenue / avg + (segment === "SMB" ? 40 : 0))
+}
+
+function conversionRate(segment: Segment, channelIdx: number): string {
+  const base =
+    segment === "Enterprise" ? 0.042 : segment === "Mid-Market" ? 0.035 : 0.028
+  return (base + channelIdx * 0.004 - (segment === "SMB" ? 0.003 : 0)).toFixed(3)
+}
+
+function discountRate(segment: Segment, monthIdx: number): string {
+  const base =
+    segment === "Enterprise" ? 0.08 : segment === "Mid-Market" ? 0.13 : 0.19
+  return (base + (monthIdx % 4) * 0.01).toFixed(2)
+}
+
+function buildSampleRows(): string[] {
+  const regions = ["North", "South", "East", "West"] as const
+  const channels = ["Direct", "Partner", "Paid Search", "Email", "Referral"] as const
+  const segmentLabels: Array<{ canon: Segment; raw: string }> = [
+    { canon: "Enterprise", raw: "Enterprise" },
+    { canon: "Mid-Market", raw: "Mid-Market" },
+    { canon: "SMB", raw: "SMB" },
+  ]
+
+  const rows: string[] = [
+    "month,region,segment,channel,revenue,margin,orders,conversion_rate,discount_rate",
+  ]
+
+  for (let mi = 0; mi < MONTHS.length; mi++) {
+    const month = MONTHS[mi]
+    for (let si = 0; si < 3; si++) {
+      const { canon, raw: defaultRaw } = segmentLabels[si]
+      let segmentRaw = defaultRaw
+      if (canon === "SMB" && mi === 1) segmentRaw = "smb"
+      if (canon === "SMB" && mi === 4) segmentRaw = "Smb"
+      if (canon === "Mid-Market" && mi === 2) segmentRaw = "Mid Market"
+      if (canon === "Mid-Market" && mi === 5) segmentRaw = "mid-market"
+      if (canon === "Mid-Market" && mi === 8) segmentRaw = "Mid-market"
+
+      const region = regions[(mi + si) % regions.length]
+      let regionRaw: string = region
+      if (mi === 3 && si === 0) regionRaw = "north"
+      if (mi === 6 && si === 1) regionRaw = "SOUTH"
+      if (mi === 9 && si === 2) regionRaw = " west"
+
+      const channelIdx = (mi + si) % channels.length
+      let channelRaw: string = channels[channelIdx]
+      if (mi === 2 && si === 1) channelRaw = "paid search"
+      if (mi === 7 && si === 0) channelRaw = "Paid  Search"
+
+      const revenue = segmentBase(canon, mi) + si * 2100 + (mi % 3) * 900
+      const disc = discountRate(canon, mi)
+      const margin = marginFor(revenue, canon, channelIdx, parseFloat(disc), mi * 10 + si)
+      const orders = ordersFor(revenue, canon)
+      const conv = conversionRate(canon, channelIdx)
+
+      rows.push(
+        `${month},${regionRaw},${segmentRaw},${channelRaw},${revenue},${margin},${orders},${conv},${disc}`,
+      )
+    }
+
+    // Two extra rows per month for channel/region mix (keeps row count ~60+)
+    const extraSegment: Segment = mi % 2 === 0 ? "Enterprise" : "Mid-Market"
+    const extraRaw =
+      extraSegment === "Mid-Market" && mi === 4 ? "Mid Market" : extraSegment
+    const extraRegion = regions[(mi + 2) % regions.length]
+    const extraChannel = channels[(mi + 1) % channels.length]
+    const extraRev = segmentBase(extraSegment, mi) + 4800
+    const extraDisc = discountRate(extraSegment, mi)
+    rows.push(
+      `${month},${extraRegion},${extraRaw},${extraChannel},${extraRev},${marginFor(extraRev, extraSegment, 2, parseFloat(extraDisc), mi * 10 + 4)},${ordersFor(extraRev, extraSegment)},${conversionRate(extraSegment, 2)},${extraDisc}`,
+    )
+
+    const smbChannel = channels[(mi + 3) % channels.length]
+    const smbRev = segmentBase("SMB", mi) - 1200
+    const smbDisc = discountRate("SMB", mi)
+    rows.push(
+      `${month},${regions[(mi + 1) % regions.length]},${mi === 10 ? "smb" : "SMB"},${smbChannel},${smbRev},${marginFor(smbRev, "SMB", 1, parseFloat(smbDisc), mi * 10 + 7)},${ordersFor(smbRev, "SMB")},${conversionRate("SMB", 1)},${smbDisc}`,
+    )
+  }
+
+  // Controlled messiness
+  const missingRevenueIdx = rows.length - 2
+  const parts = rows[missingRevenueIdx].split(",")
+  parts[4] = ""
+  rows[missingRevenueIdx] = parts.join(",")
+
+  const naMarginIdx = rows.length - 5
+  const marginParts = rows[naMarginIdx].split(",")
+  marginParts[5] = "n/a"
+  rows[naMarginIdx] = marginParts.join(",")
+
+  // One exact duplicate row
+  rows.push(rows[rows.length - 8])
+
+  return rows
+}
+
+export const sampleDatasetCsv = buildSampleRows().join("\n")

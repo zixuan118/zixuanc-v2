@@ -1,0 +1,208 @@
+.dataStudio {
+  --ds-page-bg: #faf8f3;
+  --ds-card-bg: #fffdf8;
+  --ds-text-primary: #24211d;
+  --ds-text-secondary: #6f6961;
+  --ds-text-muted: #8e877e;
+  --ds-border-soft: #e5ded3;
+  --ds-border-strong: #d4c9ba;
+  --ds-accent-ink: #2e3a36;
+  --ds-accent-sage: #6f826e;
+  --ds-accent-amber: #a8793d;
+  --ds-accent-terracotta: #a65f4b;
+  --ds-accent-slate: #657482;
+
+  color: var(--ds-text-primary);
+}
+
+.dataStudio .dsBody {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ds-text-secondary);
+}
+
+.dataStudio .dsLead {
+  font-size: 14.5px;
+  line-height: 1.72;
+  color: var(--ds-text-secondary);
+}
+
+.dataStudio .dsLabel {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ds-text-muted);
+}
+
+.dataStudio .dsCardPlain {
+  background: var(--ds-card-bg);
+  border: 1px solid var(--ds-border-soft);
+  border-radius: 2px;
+  padding: 1rem 1.15rem;
+}
+
+.dataStudio .dsCard {
+  background: var(--ds-card-bg);
+  border: 1px solid var(--ds-border-soft);
+  border-radius: 2px;
+  padding: 1rem 1.15rem;
+}
+
+.dataStudio .dsCardSage {
+  border-top: 2px solid var(--ds-accent-sage);
+}
+
+.dataStudio .dsCardAmber {
+  border-top: 2px solid var(--ds-accent-amber);
+}
+
+.dataStudio .dsCardTerracotta {
+  border-top: 2px solid var(--ds-accent-terracotta);
+}
+
+.dataStudio .dsCardSlate {
+  border-top: 2px solid var(--ds-accent-slate);
+}
+
+.dataStudio .dsMetricValue {
+  font-size: 14px;
+  color: var(--ds-text-primary);
+}
+
+.dataStudio .dsBtn {
+  border: 1px solid var(--ds-border-strong);
+  color: var(--ds-text-secondary);
+  background: var(--ds-card-bg);
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.dataStudio .dsBtn:hover {
+  color: var(--ds-text-primary);
+  border-color: var(--ds-accent-ink);
+  background: #fffefb;
+}
+
+.dataStudio .dsBarTrack {
+  height: 6px;
+  background: var(--ds-border-soft);
+}
+
+.dataStudio .dsBarSage {
+  height: 100%;
+  background: var(--ds-accent-sage);
+}
+
+.dataStudio .dsBarAmber {
+  height: 100%;
+  background: var(--ds-accent-amber);
+}
+
+.dataStudio .dsBarSlate {
+  height: 100%;
+  background: var(--ds-accent-slate);
+}
+
+.dataStudio .dsBarTerracotta {
+  height: 100%;
+  background: var(--ds-accent-terracotta);
+}
+
+.dataStudio .dsWarning {
+  border-left: 3px solid var(--ds-accent-amber);
+  padding-left: 0.75rem;
+  color: var(--ds-text-secondary);
+}
+
+.dataStudio .dsReject {
+  border-left: 3px solid var(--ds-accent-terracotta);
+  padding-left: 0.75rem;
+  color: var(--ds-text-secondary);
+}
+
+.dataStudio .dsTableWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 0.75rem;
+  padding-bottom: 2px;
+}
+
+.dataStudio .dsTable {
+  width: 100%;
+  min-width: 280px;
+  font-size: 13px;
+  color: var(--ds-text-secondary);
+  border-collapse: collapse;
+}
+
+.dataStudio .dsTable th {
+  font-weight: 400;
+  text-align: left;
+  color: var(--ds-text-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0 0.5rem 0.5rem 0;
+  border-bottom: 1px solid var(--ds-border-soft);
+}
+
+.dataStudio .dsTable td {
+  padding: 0.45rem 0.5rem 0.45rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--ds-border-soft) 70%, transparent);
+}
+
+.dataStudio .dsTable td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dataStudio .dsBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--ds-border-soft);
+  padding: 0.2rem 0.45rem;
+  font-size: 12px;
+  color: var(--ds-text-secondary);
+  border-radius: 2px;
+}
+
+.dataStudio .dsBadgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.dataStudio .dsVisualGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .dataStudio .dsVisualGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dataStudio .dsVisualWide {
+    grid-column: 1 / -1;
+  }
+}
+
+.dataStudio .dsSubsectionLabel {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ds-text-muted);
+  margin-bottom: 0.65rem;
+}
+
+.dataStudio .dsTitle {
+  color: var(--ds-text-primary);
+}
+
+.dataStudio .dsHint {
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--ds-text-muted);
+}
